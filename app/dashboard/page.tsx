@@ -37,11 +37,18 @@ export default async function DashboardPage() {
     .eq("client_id", client.id)
     .gte("data_captacao", today.toISOString())
 
+  const { data: todayDispatched } = await supabase
+    .from("leads")
+    .select("id", { count: "exact" })
+    .eq("client_id", client.id)
+    .eq("zapi_status", "ENVIADO")
+    .gte("data_disparo", today.toISOString())
+
   const stats: DashboardStats = {
     captados:         todayLeads?.length ?? 0,
     pre_qualificados: todayLeads?.filter(l => l.status === "PRE_QUALIFICADO").length ?? 0,
     qualificados:     todayLeads?.filter(l => l.status === "QUALIFICADO").length ?? 0,
-    disparados:       todayLeads?.filter(l => l.zapi_status === "ENVIADO").length ?? 0,
+    disparados:       todayDispatched?.length ?? 0,
   }
 
   // Últimos 20 leads qualificados
