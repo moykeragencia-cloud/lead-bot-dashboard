@@ -5,7 +5,7 @@ export function RecentLeads({ leads }: { leads: Lead[] }) {
   if (!leads.length) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
-        <p className="text-gray-400 text-sm">Nenhum lead capturado ainda hoje.</p>
+        <p className="text-gray-400 text-sm">Nenhum lead encontrado para o período selecionado.</p>
       </div>
     )
   }

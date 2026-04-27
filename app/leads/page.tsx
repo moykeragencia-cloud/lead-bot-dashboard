@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { StatusBadge } from "@/components/status-badge"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { getEffectiveDateRange, rangeLabel } from "@/lib/date-utils"
 import type { Lead, LeadStatus } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -10,7 +12,7 @@ const STATUS_OPTIONS: LeadStatus[] = ["QUALIFICADO", "PRE_QUALIFICADO", "DESCART
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; nicho?: string; cidade?: string; page?: string }>
+  searchParams: Promise<{ status?: string; nicho?: string; cidade?: string; page?: string; preset?: string; from?: string; to?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -25,6 +27,14 @@ export default async function LeadsPage({
 
   if (!client) redirect("/dashboard")
 
+  const { since, until } = getEffectiveDateRange(
+    params.preset ?? "last_30d",
+    params.from,
+    params.to,
+  )
+  const sinceISO = since + "T00:00:00"
+  const untilISO = until + "T23:59:59"
+
   const page   = Math.max(1, parseInt(params.page ?? "1"))
   const limit  = 50
   const offset = (page - 1) * limit
@@ -33,6 +43,8 @@ export default async function LeadsPage({
     .from("leads")
     .select("*", { count: "exact" })
     .eq("client_id", client.id)
+    .gte("data_captacao", sinceISO)
+    .lte("data_captacao", untilISO)
     .order("data_captacao", { ascending: false })
     .range(offset, offset + limit - 1)
 
@@ -58,13 +70,22 @@ export default async function LeadsPage({
   const uniqueNiches = [...new Set(niches?.map(n => n.niche_busca).filter(Boolean))] as string[]
   const uniqueCities = [...new Set(cities?.map(c => c.cidade).filter(Boolean))] as string[]
 
+  function buildUrl(base: Record<string, string | undefined>, overrides: Record<string, string>) {
+    const p = new URLSearchParams()
+    for (const [k, v] of Object.entries({ ...base, ...overrides })) {
+      if (v) p.set(k, v)
+    }
+    return `/leads?${p.toString()}`
+  }
+
   return (
     <div className="p-8 space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Leads</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{count ?? 0} leads no total</p>
+          <p className="text-sm text-gray-500 mt-0.5">{count ?? 0} leads · {rangeLabel(since, until)}</p>
         </div>
+        <DateRangePicker />
       </div>
 
       {/* Filtros */}
@@ -184,14 +205,14 @@ export default async function LeadsPage({
         {totalPages > 1 && (
           <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2 text-sm">
             {page > 1 && (
-              <a href={`?page=${page - 1}${params.status ? `&status=${params.status}` : ""}`}
+              <a href={buildUrl(params, { page: String(page - 1) })}
                 className="px-3 py-1 border border-gray-200 rounded-lg hover:bg-gray-50">
                 ← Anterior
               </a>
             )}
             <span className="text-gray-500">Página {page} de {totalPages}</span>
             {page < totalPages && (
-              <a href={`?page=${page + 1}${params.status ? `&status=${params.status}` : ""}`}
+              <a href={buildUrl(params, { page: String(page + 1) })}
                 className="px-3 py-1 border border-gray-200 rounded-lg hover:bg-gray-50">
                 Próxima →
               </a>
