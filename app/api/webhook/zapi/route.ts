@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 
-// Z-API envia este header para validar a origem
-const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN ?? ""
 const CLIENT_ID = process.env.SUPABASE_CLIENT_ID ?? ""
 
 export async function POST(req: NextRequest) {
-  // Validação do token Z-API
-  const clientToken = req.headers.get("client-token") ?? ""
-  if (ZAPI_CLIENT_TOKEN && clientToken !== ZAPI_CLIENT_TOKEN) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
 
   let payload: Record<string, unknown>
   try {
