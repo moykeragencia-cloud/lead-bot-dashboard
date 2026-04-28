@@ -12,7 +12,7 @@ const STATUS_OPTIONS: LeadStatus[] = ["QUALIFICADO", "PRE_QUALIFICADO", "DESCART
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; nicho?: string; cidade?: string; page?: string; preset?: string; from?: string; to?: string }>
+  searchParams: Promise<{ status?: string; nicho?: string; cidade?: string; page?: string; preset?: string; from?: string; to?: string; zapi_filter?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -51,6 +51,15 @@ export default async function LeadsPage({
   if (params.status) query = query.eq("status", params.status)
   if (params.nicho)  query = query.eq("niche_busca", params.nicho)
   if (params.cidade) query = query.eq("cidade", params.cidade)
+
+  // Filtro do funil (vindo do dashboard)
+  if (params.zapi_filter === "disparados") {
+    query = query.in("zapi_status", ["ENVIADO", "RESPONDEU", "PROSPECT"])
+  } else if (params.zapi_filter === "respondidos") {
+    query = query.in("zapi_status", ["RESPONDEU", "PROSPECT"])
+  } else if (params.zapi_filter === "prospects") {
+    query = query.eq("zapi_status", "PROSPECT")
+  }
 
   const { data: leads, count } = await query
   const totalPages = Math.ceil((count ?? 0) / limit)

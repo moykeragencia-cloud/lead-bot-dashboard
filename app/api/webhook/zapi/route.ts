@@ -92,12 +92,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Se for mensagem recebida (resposta do cliente), marca o lead como "RESPONDEU"
+  // Se for mensagem recebida, avança o status (nunca volta nem sobrescreve PROSPECT)
   if (!fromMe && lead?.id) {
     await supabase
       .from("leads")
       .update({ zapi_status: "RESPONDEU" })
       .eq("id", lead.id)
-      .eq("zapi_status", "ENVIADO")   // só atualiza se já foi enviado (não sobrescreve outros estados)
+      .eq("zapi_status", "ENVIADO")   // ENVIADO → RESPONDEU (não toca PROSPECT)
   }
 
   return NextResponse.json({ ok: true })

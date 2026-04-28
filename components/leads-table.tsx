@@ -9,8 +9,37 @@ interface LeadsTableProps {
   leads: Lead[]
 }
 
-export function LeadsTable({ leads }: LeadsTableProps) {
+function ZapiStatusBadge({ status }: { status: string | null }) {
+  if (status === "PROSPECT") return (
+    <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+      ⭐ Prospect
+    </span>
+  )
+  if (status === "RESPONDEU") return (
+    <span className="inline-flex items-center gap-1 text-blue-600 font-medium">
+      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+      Respondeu
+    </span>
+  )
+  if (status === "ENVIADO") return (
+    <span className="text-green-600 font-medium">✓ Enviado</span>
+  )
+  if (status?.startsWith("ERRO")) return (
+    <span className="text-red-500">Erro</span>
+  )
+  return <span className="text-gray-300">—</span>
+}
+
+export function LeadsTable({ leads: initialLeads }: LeadsTableProps) {
+  const [leads, setLeads] = useState<Lead[]>(initialLeads)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
+
+  function handleStatusChange(leadId: string, newStatus: string) {
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, zapi_status: newStatus } : l))
+    if (selectedLead?.id === leadId) {
+      setSelectedLead(prev => prev ? { ...prev, zapi_status: newStatus } : prev)
+    }
+  }
 
   return (
     <>
@@ -71,18 +100,7 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                 <StatusBadge status={lead.status} />
               </td>
               <td className="px-4 py-3 text-xs">
-                {lead.zapi_status === "RESPONDEU" ? (
-                  <span className="inline-flex items-center gap-1 text-blue-600 font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                    Respondeu
-                  </span>
-                ) : lead.zapi_status === "ENVIADO" ? (
-                  <span className="text-green-600 font-medium">✓ Enviado</span>
-                ) : lead.zapi_status?.startsWith("ERRO") ? (
-                  <span className="text-red-500">Erro</span>
-                ) : (
-                  <span className="text-gray-300">—</span>
-                )}
+                <ZapiStatusBadge status={lead.zapi_status} />
               </td>
             </tr>
           ))}
@@ -94,7 +112,9 @@ export function LeadsTable({ leads }: LeadsTableProps) {
           leadId={selectedLead.id}
           leadName={selectedLead.nome || selectedLead.username || selectedLead.contato || "Lead"}
           phone={selectedLead.contato || ""}
+          zapiStatus={selectedLead.zapi_status}
           onClose={() => setSelectedLead(null)}
+          onStatusChange={handleStatusChange}
         />
       )}
     </>

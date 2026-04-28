@@ -1,11 +1,11 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { StatsCards } from "@/components/stats-cards"
 import { RecentLeads } from "@/components/recent-leads"
 import { TriggerButton } from "@/components/trigger-button"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { FunnelCards } from "@/components/funnel-cards"
 import { getEffectiveDateRange, rangeLabel } from "@/lib/date-utils"
-import type { Lead, DashboardStats } from "@/lib/types"
+import type { Lead } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
@@ -27,7 +27,6 @@ export default async function DashboardPage({
   const sinceISO = since + "T00:00:00"
   const untilISO = until + "T23:59:59"
 
-  // Busca client_id do usuário logado
   const { data: client } = await supabase
     .from("clients")
     .select("id, name")
@@ -42,27 +41,25 @@ export default async function DashboardPage({
     )
   }
 
-  const { data: periodLeads } = await supabase
+  // Busca todos os leads do período com os campos necessários para o funil
+  const { data: leads } = await supabase
     .from("leads")
-    .select("status, zapi_status")
+    .select("id, status, zapi_status, data_captacao, data_disparo")
     .eq("client_id", client.id)
     .gte("data_captacao", sinceISO)
     .lte("data_captacao", untilISO)
 
-  const { data: periodDispatched } = await supabase
-    .from("leads")
-    .select("id", { count: "exact" })
-    .eq("client_id", client.id)
-    .eq("zapi_status", "ENVIADO")
-    .gte("data_disparo", sinceISO)
-    .lte("data_disparo", untilISO)
+  const allLeads = leads ?? []
 
-  const stats: DashboardStats = {
-    captados:         periodLeads?.length ?? 0,
-    pre_qualificados: periodLeads?.filter(l => l.status === "PRE_QUALIFICADO").length ?? 0,
-    qualificados:     periodLeads?.filter(l => l.status === "QUALIFICADO").length ?? 0,
-    disparados:       periodDispatched?.length ?? 0,
-  }
+  const captados    = allLeads.length
+  const qualificados = allLeads.filter(l => l.status === "QUALIFICADO").length
+  const disparados  = allLeads.filter(l =>
+    l.zapi_status === "ENVIADO" || l.zapi_status === "RESPONDEU" || l.zapi_status === "PROSPECT"
+  ).length
+  const respondidos = allLeads.filter(l =>
+    l.zapi_status === "RESPONDEU" || l.zapi_status === "PROSPECT"
+  ).length
+  const prospects   = allLeads.filter(l => l.zapi_status === "PROSPECT").length
 
   const { data: recentLeads } = await supabase
     .from("leads")
@@ -87,8 +84,17 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      {/* Stats */}
-      <StatsCards stats={stats} />
+      {/* Funil */}
+      <FunnelCards
+        captados={captados}
+        qualificados={qualificados}
+        disparados={disparados}
+        respondidos={respondidos}
+        prospects={prospects}
+        since={since}
+        until={until}
+        preset={params.preset}
+      />
 
       {/* Leads recentes */}
       <div>
