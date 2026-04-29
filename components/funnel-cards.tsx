@@ -69,7 +69,7 @@ export function FunnelCards({
         icon="🎯"
         color="text-gray-800"
         ring="border-gray-200"
-        href={`/leads?${dateParam}`}
+        href={`/dashboard?${dateParam}&modal=captados`}
       />
       <FunnelStep
         label="Qualificados"
@@ -77,7 +77,7 @@ export function FunnelCards({
         icon="✅"
         color="text-blue-600"
         ring="border-blue-200"
-        href={`/leads?${dateParam}&status=QUALIFICADO`}
+        href={`/dashboard?${dateParam}&modal=qualificados`}
         convRate={pct(qualificados, captados)}
       />
       <FunnelStep
@@ -86,7 +86,7 @@ export function FunnelCards({
         icon="📤"
         color="text-indigo-600"
         ring="border-indigo-200"
-        href={`/leads?${dateParam}&zapi_filter=disparados`}
+        href={`/dashboard?${dateParam}&modal=disparados`}
         convRate={pct(disparados, qualificados)}
       />
       <FunnelStep
@@ -95,7 +95,7 @@ export function FunnelCards({
         icon="💬"
         color="text-purple-600"
         ring="border-purple-200"
-        href={`/leads?${dateParam}&zapi_filter=respondidos`}
+        href={`/dashboard?${dateParam}&modal=respondidos`}
         convRate={pct(respondidos, disparados)}
       />
       <FunnelStep
@@ -104,7 +104,7 @@ export function FunnelCards({
         icon="⭐"
         color="text-emerald-600"
         ring="border-emerald-200"
-        href={`/leads?${dateParam}&zapi_filter=prospects`}
+        href={`/dashboard?${dateParam}&modal=prospects`}
         convRate={pct(prospects, respondidos)}
       />
     </div>

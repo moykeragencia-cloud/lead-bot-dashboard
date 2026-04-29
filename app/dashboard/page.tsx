@@ -5,6 +5,7 @@ import { TriggerButton } from "@/components/trigger-button"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { FunnelCards } from "@/components/funnel-cards"
 import { InboxBox } from "@/components/inbox-box"
+import { FunnelModal } from "@/components/funnel-modal"
 import { getEffectiveDateRange, rangeLabel } from "@/lib/date-utils"
 import type { Lead } from "@/lib/types"
 
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic"
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preset?: string; from?: string; to?: string }>
+  searchParams: Promise<{ preset?: string; from?: string; to?: string; modal?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -61,25 +62,27 @@ export default async function DashboardPage({
   ).length
   const prospects   = allLeads.filter(l => l.zapi_status === "PROSPECT").length
 
-  // ── Inbox: leads que responderam e aguardam reply ─────────────────────────
-  const respondeuIds = allLeads
-    .filter(l => ["RESPONDEU", "PROSPECT"].includes(l.zapi_status ?? ""))
-    .map(l => l.id)
+  // ── Inbox: TODOS os leads aguardando reply (sem filtro de data) ───────────
+  const { data: allRespondedLeads } = await supabase
+    .from("leads")
+    .select("id, nome, username, segmento, zapi_status")
+    .eq("client_id", client.id)
+    .in("zapi_status", ["RESPONDEU", "PROSPECT"])
 
   let inboxLeads: {
     leadId: string; leadName: string; segmento: string | null
     lastMessage: string; receivedAt: string; zapiStatus: string | null
   }[] = []
 
-  if (respondeuIds.length > 0) {
-    // Busca última mensagem de cada lead que respondeu
+  if ((allRespondedLeads ?? []).length > 0) {
+    const allRespondedIds = (allRespondedLeads ?? []).map(l => l.id)
+
     const { data: lastMessages } = await supabase
       .from("messages")
       .select("lead_id, direction, body, received_at")
-      .in("lead_id", respondeuIds)
+      .in("lead_id", allRespondedIds)
       .order("received_at", { ascending: false })
 
-    // Agrupa: pega só a última mensagem por lead
     const byLead: Record<string, typeof lastMessages extends (infer T)[] | null ? T : never> = {}
     for (const msg of lastMessages ?? []) {
       if (msg.lead_id && !byLead[msg.lead_id]) {
@@ -87,30 +90,52 @@ export default async function DashboardPage({
       }
     }
 
-    // Filtra só os que têm última mensagem = "in" (aguardando nossa resposta)
     const waitingIds = Object.entries(byLead)
       .filter(([, msg]) => msg.direction === "in")
       .map(([id]) => id)
 
-    if (waitingIds.length > 0) {
-      const { data: leadDetails } = await supabase
-        .from("leads")
-        .select("id, nome, username, segmento, zapi_status")
-        .in("id", waitingIds)
+    inboxLeads = waitingIds.map(id => {
+      const lead = (allRespondedLeads ?? []).find(l => l.id === id)
+      const msg = byLead[id]
+      return {
+        leadId: id,
+        leadName: lead?.nome || lead?.username || "Lead",
+        segmento: lead?.segmento ?? null,
+        lastMessage: msg?.body ?? "(mídia)",
+        receivedAt: msg?.received_at ?? new Date().toISOString(),
+        zapiStatus: lead?.zapi_status ?? null,
+      }
+    })
+  }
 
-      inboxLeads = waitingIds.map(id => {
-        const lead = leadDetails?.find(l => l.id === id)
-        const msg = byLead[id]
-        return {
-          leadId: id,
-          leadName: lead?.nome || lead?.username || "Lead",
-          segmento: lead?.segmento ?? null,
-          lastMessage: msg?.body ?? "(mídia)",
-          receivedAt: msg?.received_at ?? new Date().toISOString(),
-          zapiStatus: lead?.zapi_status ?? null,
-        }
-      })
-    }
+  // ── Modal leads (popup do funil) ──────────────────────────────────────────
+  const MODAL_LABELS: Record<string, string> = {
+    captados:    "🎯 Captados",
+    qualificados:"✅ Qualificados",
+    disparados:  "📤 Disparados",
+    respondidos: "💬 Respondidos",
+    prospects:   "⭐ Prospects",
+  }
+  let modalLeads: { id: string; nome: string | null; username: string | null; segmento: string | null; status: string | null; zapi_status: string | null; data_captacao: string | null }[] = []
+  const modalTitle = params.modal ? (MODAL_LABELS[params.modal] ?? "Leads") : ""
+
+  if (params.modal) {
+    let mq = supabase
+      .from("leads")
+      .select("id, nome, username, segmento, status, zapi_status, data_captacao")
+      .eq("client_id", client.id)
+      .gte("data_captacao", sinceISO)
+      .lte("data_captacao", untilISO)
+      .order("data_captacao", { ascending: false })
+      .limit(100)
+
+    if (params.modal === "qualificados") mq = mq.eq("status", "QUALIFICADO")
+    else if (params.modal === "disparados") mq = mq.in("zapi_status", ["ENVIADO","RESPONDEU","PROSPECT"])
+    else if (params.modal === "respondidos") mq = mq.in("zapi_status", ["RESPONDEU","PROSPECT"])
+    else if (params.modal === "prospects")  mq = mq.eq("zapi_status", "PROSPECT")
+
+    const { data: mLeads } = await mq
+    modalLeads = mLeads ?? []
   }
 
   // ── Última execução ───────────────────────────────────────────────────────
@@ -141,6 +166,15 @@ export default async function DashboardPage({
 
   return (
     <div className="p-8 space-y-7">
+      {/* Modal do funil */}
+      {params.modal && (
+        <FunnelModal
+          leads={modalLeads}
+          title={modalTitle}
+          closeHref={`/dashboard?${params.preset ? `preset=${params.preset}` : `from=${since}&to=${until}`}`}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>

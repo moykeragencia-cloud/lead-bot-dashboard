@@ -128,6 +128,17 @@ export default async function LeadsPage({
           {uniqueCities.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
 
+        <select
+          name="zapi_filter"
+          defaultValue={params.zapi_filter ?? ""}
+          className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Todos os disparos</option>
+          <option value="disparados">📤 Disparados</option>
+          <option value="respondidos">💬 Respondidos</option>
+          <option value="prospects">⭐ Prospects</option>
+        </select>
+
         <button
           type="submit"
           className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -136,7 +147,7 @@ export default async function LeadsPage({
         </button>
 
         <a
-          href="/leads"
+          href={`/leads${params.preset ? `?preset=${params.preset}` : params.from ? `?from=${params.from}&to=${params.to}` : ""}`}
           className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
         >
           Limpar
